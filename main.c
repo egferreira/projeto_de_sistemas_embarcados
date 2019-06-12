@@ -110,8 +110,8 @@
 
 typedef struct
 {
-	void (*ptrFunc) (void);
-	uint8_t NextState;
+      void (*ptrFunc) (void);
+      uint8_t NextState;
 } FSM_STATE_TABLE;
 
 //prototipos dos estados
@@ -306,8 +306,9 @@ void le_sensor()
 	port_pin_toggle_output_level(LED_0_PIN); //teste
 	adc_start_conversion(&adc_instance);
 	
-	do {
-		/* Aguarda a conversao e guarda o resultado em temperatura_atual */
+	do 
+	{
+	  /* Aguarda a conversao e guarda o resultado em temperatura_atual */
 	} while (adc_read(&adc_instance, &conversao_temperatura) == STATUS_BUSY); 
 	printf("CONVERSAO = %d\n", conversao_temperatura);
 	temperatura_atual =  ((float)conversao_temperatura*3.3/(4096))/0.01;  // conversao se necessario
@@ -320,9 +321,11 @@ void calcula_media()
 {
 	//calcula media, max, min e atual e grava na memoria
 	printf("Calculando media e gravando na memoria !!\r\n");
-	if (temperatura_atual > temp_max){
+	if (temperatura_atual > temp_max)
+	{
 		temp_max = temperatura_atual;
-	}else if (temperatura_atual < temp_min){
+	}else if (temperatura_atual < temp_min)
+	{
 		temp_min = temperatura_atual;
 	}
 	
