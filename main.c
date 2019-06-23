@@ -110,8 +110,8 @@
 
 typedef struct
 {
-      void (*ptrFunc) (void);
-      uint8_t NextState;
+	void (*ptrFunc) (void);
+	uint8_t NextState;
 } FSM_STATE_TABLE;
 
 //prototipos dos estados
@@ -126,11 +126,11 @@ void hard_reset();
 const FSM_STATE_TABLE StateTable [NR_STATES][NR_EVENTS] =
 {
       init, INIT_SYSTEM,                             init, LE_SENSOR,                       init, LE_SENSOR,                      init, RESET_APPICATION, 
-      le_sensor, LE_SENSOR,                          le_sensor, CALC_MEDIA, 		    le_sensor, CALC_MEDIA, 	          le_sensor, RESET_APPICATION, 
-      calcula_media, CALC_MEDIA,                     calcula_media, MOSTRA_DISPLAY,   	    calcula_media, MOSTRA_DISPLAY,	  calcula_media, RESET_APPICATION,
-      mostra_display, MOSTRA_DISPLAY,                mostra_display, ESPERA_TAXA,	    mostra_display, ESPERA_TAXA,	  mostra_display, RESET_APPICATION,
-      ocioso, ESPERA_TAXA,                 	     ocioso, LE_SENSOR,		   	    ocioso, MOSTRA_DISPLAY,   		  ocioso, RESET_APPICATION,   
-      hard_reset, INIT_SYSTEM,                       hard_reset, INIT_SYSTEM,               hard_reset, INIT_SYSTEM,              hard_reset, RESET_APPICATION,             
+      le_sensor, LE_SENSOR,                          le_sensor, CALC_MEDIA, 				le_sensor, CALC_MEDIA, 				  le_sensor, RESET_APPICATION, 
+      calcula_media, CALC_MEDIA,                     calcula_media, MOSTRA_DISPLAY,   		calcula_media, MOSTRA_DISPLAY,		  calcula_media, RESET_APPICATION,
+      mostra_display, MOSTRA_DISPLAY,                mostra_display, ESPERA_TAXA,			mostra_display, ESPERA_TAXA,		  mostra_display, RESET_APPICATION,
+      ocioso, ESPERA_TAXA,                 			 ocioso, LE_SENSOR,						ocioso, MOSTRA_DISPLAY,   			  ocioso, RESET_APPICATION,   
+	  hard_reset, INIT_SYSTEM,                       hard_reset, INIT_SYSTEM,               hard_reset, INIT_SYSTEM,              hard_reset, RESET_APPICATION,             
 };
 
 int evento = 0;
@@ -185,24 +185,20 @@ void configure_eeprom(void);
 
 //! [setup]
 void configure_eeprom(void)
-{
+{	
 	/* Setup EEPROM emulator service */
 //! [init_eeprom_service]
 	enum status_code error_code = eeprom_emulator_init();
-//! [init_eeprom_service]
-
+//! [init_eeprom_service]	
 //! [check_init_ok]
-	if (error_code == STATUS_ERR_NO_MEMORY) 
-	{
-		while (true) 
-		{
+	if (error_code == STATUS_ERR_NO_MEMORY) {
+		//while (true) {
 			/* No EEPROM section has been set in the device's fuses */
-		}
+		//}
 	}
 //! [check_init_ok]
 //! [check_re-init]
-	else if (error_code != STATUS_OK) 
-	{
+	else if (error_code != STATUS_OK) {
 		/* Erase the emulated EEPROM memory (assume it is unformatted or
 		 * irrecoverably corrupt) */
 		printf("Erro de memoria!!\n");
@@ -210,13 +206,14 @@ void configure_eeprom(void)
 		eeprom_emulator_init();
 	}
 //! [check_re-init]
+	
+	
 }
 
 #if (SAMD || SAMR21)
 void SYSCTRL_Handler(void)
 {
-	if (SYSCTRL->INTFLAG.reg & SYSCTRL_INTFLAG_BOD33DET) 
-	{
+	if (SYSCTRL->INTFLAG.reg & SYSCTRL_INTFLAG_BOD33DET) {
 		SYSCTRL->INTFLAG.reg |= SYSCTRL_INTFLAG_BOD33DET;
 		eeprom_emulator_commit_page_buffer();
 	}
@@ -267,14 +264,12 @@ void configure_adc(void)
 	adc_enable(&adc_instance);
 }
 
-void debounce() /// pode isso zé ?
-{
+void debounce(){
 	volatile uint16_t i;
 	for(i = 0; i < 30000; i++);
 }
 
-void init()
-{
+void init(){
 	configure_rtc_count();
 	rtc_count_set_period(&rtc_instance, 2000);
 	configure_adc();
@@ -284,7 +279,7 @@ void init()
 	
 	// teste de memória
 	configure_eeprom();
-	configure_bod();
+	configure_bod();	
 	
 // 	page_data[0] = 10;
 // 	eeprom_emulator_write_page(0, page_data);
@@ -301,14 +296,12 @@ void init()
 	evento = PROXIMO_ESTADO;
 }
 
-void le_sensor()
-{
+void le_sensor(){
 	port_pin_toggle_output_level(LED_0_PIN); //teste
 	adc_start_conversion(&adc_instance);
 	
-	do 
-	{
-	  /* Aguarda a conversao e guarda o resultado em temperatura_atual */
+	do {
+		/* Aguarda a conversao e guarda o resultado em temperatura_atual */
 	} while (adc_read(&adc_instance, &conversao_temperatura) == STATUS_BUSY); 
 	printf("CONVERSAO = %d\n", conversao_temperatura);
 	temperatura_atual =  ((float)conversao_temperatura*3.3/(4096))/0.01;  // conversao se necessario
@@ -317,15 +310,12 @@ void le_sensor()
 	evento = PROXIMO_ESTADO;
 }
 
-void calcula_media()
-{
+void calcula_media(){
 	//calcula media, max, min e atual e grava na memoria
 	printf("Calculando media e gravando na memoria !!\r\n");
-	if (temperatura_atual > temp_max)
-	{
+	if (temperatura_atual > temp_max){
 		temp_max = temperatura_atual;
-	}else if (temperatura_atual < temp_min)
-	{
+	}else if (temperatura_atual < temp_min){
 		temp_min = temperatura_atual;
 	}
 	
@@ -342,13 +332,11 @@ void calcula_media()
 	evento = PROXIMO_ESTADO;
 }
 
-void mostra_display()
-{
+void mostra_display(){
 	//mostra no display as informa?s media, max, min e atual
 	printf("Mostrando no display !!\r\n");
 	
-	switch (estado)
-	{       // estados para as informações mostradas no display
+	switch (estado){ // estados para as informações mostradas no display
 		case TEMP_ATUAL:
 			strcpy(mensagem, "Temperatura  Atual:");
 			itoa ((int)temperatura_atual , c, 10);
@@ -386,36 +374,29 @@ void mostra_display()
 }
 
 //usa o tempo entre leituras do sensor para verificar o estado dos botoes do display
-void ocioso()
-{
+void ocioso(){
 	//static volatile int j = 0;
 	//printf("Estou ocioso por 2 segundos !!\r\n");
-	if (rtc_count_is_compare_match(&rtc_instance, RTC_COUNT_COMPARE_0)) 
-	{
+	if (rtc_count_is_compare_match(&rtc_instance, RTC_COUNT_COMPARE_0)) {
 		rtc_count_clear_compare_match(&rtc_instance, RTC_COUNT_COMPARE_0);
 		evento = PROXIMO_ESTADO;
-	}else if(oled1_get_button_state(&oled1, OLED1_BUTTON1_ID))
-	{
+	}else if(oled1_get_button_state(&oled1, OLED1_BUTTON1_ID)){
 		estado = (estado - 1) % 4;
 		evento = ESTADO_ANTERIOR;
 		debounce();
-	}else if (oled1_get_button_state(&oled1, OLED1_BUTTON3_ID))
-	{
+	}else if (oled1_get_button_state(&oled1, OLED1_BUTTON3_ID)){
 		estado = (estado + 1) % 4;
 		evento = ESTADO_ANTERIOR;
 		debounce();
-	}else if (oled1_get_button_state(&oled1, OLED1_BUTTON2_ID))
-	{
+	}else if (oled1_get_button_state(&oled1, OLED1_BUTTON2_ID)){
 		evento = HARD_RESET;
 		debounce();
-	}else
-	{
+	}else{
 		evento = MANTEM_ESTADO;
 	}
 }
 
-void hard_reset()
-{
+void hard_reset(){
 	printf("HARD RESET DA APLICACAO\n");
 	
 	temperatura_atual = 0;
@@ -433,9 +414,8 @@ void hard_reset()
 	evento = PROXIMO_ESTADO;
 }
 
-int main (void)
-{
-	int i;
+int main (void){
+	int i = 0;
 	
 	// Inicializacao do sistema
 	system_init();
@@ -451,14 +431,19 @@ int main (void)
 	stdio_serial_init(&usart_instance, EDBG_CDC_MODULE, &usart_conf);
 	
 	usart_enable(&usart_instance);
-	
-	printf("Oi !!\r\n");
+
+	printf("OLA!!\r\n");
 	uint8_t currentState = INIT_SYSTEM;
-	while (1) 
-	{
-		if (StateTable[currentState][evento].ptrFunc != NULL)
-			StateTable[currentState][evento].ptrFunc();
 	
+	while (1) {
+		
+		if (StateTable[currentState][evento].ptrFunc != NULL)
+			{
+				
+				StateTable[currentState][evento].ptrFunc();					
+			}
+			
+		//printf(" DEBUG !!\r\n");	
 		currentState = StateTable[currentState][evento].NextState;	
 	}
 }
