@@ -132,11 +132,11 @@ void hard_reset();
 const FSM_STATE_TABLE StateTable [NUMERO_ESTADOS][NUMERO_EVENTOS] =
 {
       init,           INICIO,              init,           SENSOR,               init,           SENSOR,               init,           RESET_APPICATION, 
-      le_sensor,      SENSOR,              le_sensor,      CALCULA_MEDIA, 	     le_sensor,      CALCULA_MEDIA, 	   le_sensor,      RESET_APPICATION, 
-      calcula_media,  CALCULA_MEDIA,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  MOSTRA_DISPLAY,	   calcula_media,  RESET_APPICATION,
+      le_sensor,      SENSOR,              le_sensor,      CALCULA_MEDIA, 	 le_sensor,      CALCULA_MEDIA,        le_sensor,      RESET_APPICATION, 
+      calcula_media,  CALCULA_MEDIA,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  RESET_APPICATION,
       mostra_display, MOSTRA_DISPLAY,      mostra_display, ESPERA_TAXA,	         mostra_display, ESPERA_TAXA,	       mostra_display, RESET_APPICATION,
-      ocioso,         ESPERA_TAXA,         ocioso,         SENSOR,			     ocioso,         MOSTRA_DISPLAY,       ocioso,         RESET_APPICATION,   
-	  hard_reset,     INICIO,              hard_reset,     INICIO,               hard_reset,     INICIO,               hard_reset,     RESET_APPICATION,             
+      ocioso,         ESPERA_TAXA,         ocioso,         SENSOR,      	 ocioso,         MOSTRA_DISPLAY,       ocioso,         RESET_APPICATION,   
+      hard_reset,     INICIO,              hard_reset,     INICIO,               hard_reset,     INICIO,               hard_reset,     RESET_APPICATION,             
 };
 
 int evento = 0;
@@ -477,4 +477,3 @@ int main (void)
 		currentState = StateTable[currentState][evento].NextState;	
 	}
 }
-
