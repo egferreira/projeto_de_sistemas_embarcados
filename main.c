@@ -126,11 +126,11 @@ void hard_reset();
 const FSM_STATE_TABLE StateTable [NR_STATES][NR_EVENTS] =
 {
       init, INIT_SYSTEM,                             init, LE_SENSOR,                       init, LE_SENSOR,                      init, RESET_APPICATION, 
-      le_sensor, LE_SENSOR,                          le_sensor, CALC_MEDIA, 				le_sensor, CALC_MEDIA, 				  le_sensor, RESET_APPICATION, 
-      calcula_media, CALC_MEDIA,                     calcula_media, MOSTRA_DISPLAY,   		calcula_media, MOSTRA_DISPLAY,		  calcula_media, RESET_APPICATION,
-      mostra_display, MOSTRA_DISPLAY,                mostra_display, ESPERA_TAXA,			mostra_display, ESPERA_TAXA,		  mostra_display, RESET_APPICATION,
-      ocioso, ESPERA_TAXA,                 			 ocioso, LE_SENSOR,						ocioso, MOSTRA_DISPLAY,   			  ocioso, RESET_APPICATION,   
-	  hard_reset, INIT_SYSTEM,                       hard_reset, INIT_SYSTEM,               hard_reset, INIT_SYSTEM,              hard_reset, RESET_APPICATION,             
+      le_sensor, LE_SENSOR,                          le_sensor, CALC_MEDIA, 	            le_sensor, CALC_MEDIA, 		  le_sensor, RESET_APPICATION, 
+      calcula_media, CALC_MEDIA,                     calcula_media, MOSTRA_DISPLAY,   	    calcula_media, MOSTRA_DISPLAY,	  calcula_media, RESET_APPICATION,
+      mostra_display, MOSTRA_DISPLAY,                mostra_display, ESPERA_TAXA,           mostra_display, ESPERA_TAXA,	  mostra_display, RESET_APPICATION,
+      ocioso, ESPERA_TAXA,                           ocioso, LE_SENSOR,			    ocioso, MOSTRA_DISPLAY,   		  ocioso, RESET_APPICATION,   
+      hard_reset, INIT_SYSTEM,                       hard_reset, INIT_SYSTEM,               hard_reset, INIT_SYSTEM,              hard_reset, RESET_APPICATION,             
 };
 
 int evento = 0;
