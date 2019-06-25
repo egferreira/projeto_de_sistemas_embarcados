@@ -316,6 +316,7 @@ void le_sensor()
 	evento = PROXIMO_ESTADO;
 }
 
+/// Calcula a media de temperatura e grava na memoria
 void calcula_media(){
 	
 	
@@ -449,7 +450,7 @@ void hard_reset()
 	evento = PROXIMO_ESTADO;
 }
 
-
+/// Funcao main, configura o USART e inicia as protothreads em um loop infinito
 int main (void)
 {
 	int i = 0;
