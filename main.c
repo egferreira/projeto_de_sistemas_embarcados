@@ -93,9 +93,10 @@
 #include <stdarg.h>
 #include "oled1.h"
 #include <math.h>
+#include <demotasks.h>
 
 
-//! Delcaração das constantes e defines do programa	
+//! Delcaração das constantes e defines do programa
 #define NUMERO_ESTADOS 6
 #define NUMERO_EVENTOS 4
 
@@ -106,49 +107,62 @@
 #define ESPERA_TAXA 4
 #define RESET_APPICATION 5
 
-#define MANTEM_ESTADO 0 
+#define MANTEM_ESTADO 0
 #define PROXIMO_ESTADO 1
 #define ESTADO_ANTERIOR 2
 #define HARD_RESET 3
 
+#define MAIN_TASK_PRIORITY      (tskIDLE_PRIORITY + 2)
+#define MAIN_TASK_DELAY         (50 / portTICK_RATE_MS)
 
-//! Estrutura das Protothreads 
+#define ABOUT_TASK_PRIORITY     (tskIDLE_PRIORITY + 1)
+#define ABOUT_TASK_DELAY        (33 / portTICK_RATE_MS)
+
+#define TERMINAL_TASK_PRIORITY  (tskIDLE_PRIORITY + 1)
+#define TERMINAL_TASK_DELAY     (1000 / portTICK_RATE_MS)
+
+//! Estrutura das Protothreads
 typedef struct
 {
 	void (*ptrFunc) (void);
 	uint8_t NextState;
-	
+
 } FSM_STATE_TABLE;
 
-//! prototipos dos estados 
-void init();
-void le_sensor();
-void calcula_media();
-void mostra_display();
-void ocioso();
-void hard_reset();
+//! prototipos dos estados
+void init(void);
+void inicial(void);
+void le_sensor(void);
+void calcula_media(void);
+void mostra_display(void);
+void ocioso(void);
+void hard_reset(void);
+void debounce(void);
+int converte_celcius_task (int);
+void mostraconsole_task(void * params);
+void main_task( void * param);
 
-//! Tabela de estados 
+//! Tabela de estados
 const FSM_STATE_TABLE StateTable [NUMERO_ESTADOS][NUMERO_EVENTOS] =
 {
-      init,           INICIO,              init,           SENSOR,               init,           SENSOR,               init,           RESET_APPICATION, 
-      le_sensor,      SENSOR,              le_sensor,      CALCULA_MEDIA, 	 le_sensor,      CALCULA_MEDIA,        le_sensor,      RESET_APPICATION, 
-      calcula_media,  CALCULA_MEDIA,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  RESET_APPICATION,
+	  inicial,        INICIO,              inicial,        SENSOR,               inicial,        SENSOR,               inicial,        RESET_APPICATION,
+      le_sensor,      SENSOR,              le_sensor,      CALCULA_MEDIA, 	     le_sensor,      CALCULA_MEDIA, 	   le_sensor,      RESET_APPICATION,
+      calcula_media,  CALCULA_MEDIA,       calcula_media,  MOSTRA_DISPLAY,       calcula_media,  MOSTRA_DISPLAY,	   calcula_media,  RESET_APPICATION,
       mostra_display, MOSTRA_DISPLAY,      mostra_display, ESPERA_TAXA,	         mostra_display, ESPERA_TAXA,	       mostra_display, RESET_APPICATION,
-      ocioso,         ESPERA_TAXA,         ocioso,         SENSOR,      	 ocioso,         MOSTRA_DISPLAY,       ocioso,         RESET_APPICATION,   
-      hard_reset,     INICIO,              hard_reset,     INICIO,               hard_reset,     INICIO,               hard_reset,     RESET_APPICATION,             
+      ocioso,         ESPERA_TAXA,         ocioso,         SENSOR,			     ocioso,         MOSTRA_DISPLAY,       ocioso,         RESET_APPICATION,
+	  hard_reset,     INICIO,              hard_reset,     INICIO,               hard_reset,     INICIO,               hard_reset,     RESET_APPICATION,
 };
 
 int evento = 0;
 
-//! Modulo de comunicação serial 
+//! Modulo de comunicação serial
 struct usart_module usart_instance;
 struct usart_config usart_conf;
 
-//! Oled 
+//! Oled
 static OLED1_CREATE_INSTANCE(oled1, OLED1_EXT_HEADER);
 
-//! Protótipos de funções 
+//! Protótipos de funções
 void configure_rtc_count(void);
 void configure_eeprom(void);
 void configure_adc(void);
@@ -167,30 +181,32 @@ char mensagem [20];
 
 
 uint8_t temperatura_atual = 0;
-uint8_t temp_min   = 10000 ;
+uint8_t temp_min   = 255 ;
 uint8_t temp_media = 0 ;
 uint8_t temp_max   = 0 ;
 
 
 uint8_t page_data[EEPROM_PAGE_SIZE];
 
-enum state 
+uint8_t currentState = INICIO;
+
+enum state
 {
-	TEMP_ATUAL = 0, 
-	MEIO, 
-	TEMP_MAX, 
+	TEMP_ATUAL = 0,
+	MEIO,
+	TEMP_MAX,
 	TEMP_MIN
-}estado; //estados para o mostrador do display
-	
+}estado; //estados para o or do display
+
 
 //! Configuração da memoria
 void configure_eeprom(void)
-{	
+{
 	enum status_code error_code = eeprom_emulator_init();
 
-	if (error_code == STATUS_ERR_NO_MEMORY) 
+	if (error_code == STATUS_ERR_NO_MEMORY)
 	{
-		while (true) 
+		while (true)
 		{
 			/* No EEPROM section has been set in the device's fuses */
 			printf("No EEPROM section has been set in the device's fuses!!\n\r");
@@ -198,11 +214,11 @@ void configure_eeprom(void)
 		}
 	}
 
-	else if (error_code != STATUS_OK) 
+	else if (error_code != STATUS_OK)
 	{
 		/* Erase the emulated EEPROM memory (assume it is unformatted or
 		 * irrecoverably corrupt) */
-		printf("Memory error!!!\n");
+		printf("Memory error!!! \r\n");
 		eeprom_emulator_erase_memory();
 		eeprom_emulator_init();
 	}
@@ -219,6 +235,12 @@ void SYSCTRL_Handler(void)
 }
 #endif
 
+/// Converte a temperatura para celcius
+//@param temperatura
+int converte_celcius_task (int __temperatura)
+{
+	return ( ( ( (int)__temperatura - 32) * 5)/9);
+}
 
 //! Estava no exemplo
 static void configure_bod(void)
@@ -261,7 +283,7 @@ void configure_adc(void)
 {
 	struct adc_config config_adc;
 	adc_get_config_defaults(&config_adc);
-	config_adc.resolution = ADC_RESOLUTION_12BIT; 
+	config_adc.resolution = ADC_RESOLUTION_12BIT;
 	config_adc.positive_input = ADC_POSITIVE_INPUT_TEMP;
 	adc_init(&adc_instance, ADC, &config_adc);
 	adc_enable(&adc_instance);
@@ -285,50 +307,67 @@ void init()
 	estado  = TEMP_ATUAL;
 
 	configure_eeprom();
-	configure_bod();	
-	
+	configure_bod();
+
 	eeprom_emulator_read_page(0, page_data);
-	temperatura_atual = page_data[0]; 
+	temperatura_atual = page_data[0];
 	temp_media = page_data[1];
 	temp_max = page_data[2];
 	temp_min = page_data[3];
-	
+
+
+	xTaskCreate( mostraconsole_task, ( const char *) "MostraConsole" , 50, NULL, TERMINAL_TASK_PRIORITY, NULL);
+
+	xTaskCreate( main_task, ( const char *) "Main" , 100, NULL, MAIN_TASK_PRIORITY, NULL);
+
 	//! PRINT DE DEBUG
-	printf("Inicializando\r\n"); 
-	
+	printf("Inicializando\r\n");
+
+	printf( "Inicializando as task \r\n");
+
 	evento = PROXIMO_ESTADO;
 }
+
 
 //! Leitura de Sensor
 void le_sensor()
 {
 	//! Acende o Led para debug
-	port_pin_toggle_output_level(LED_0_PIN); 
+	port_pin_toggle_output_level(LED_0_PIN);
 	adc_start_conversion(&adc_instance);
-	
+
 	do {
-		/// Aguarda a conversao e guarda o resultado em temperatura_atual 
-	} while (adc_read(&adc_instance, &conversao_temperatura) == STATUS_BUSY); 
-	printf("CONVERSAO = %d\n", conversao_temperatura);
-	temperatura_atual =  ((float)conversao_temperatura*3.3/(4096))/0.01;  // conversao se necessario		
-	printf("Lendo do sensor !!\r\n");
-	
+		/// Aguarda a conversao e guarda o resultado em temperatura_atual
+	} while (adc_read(&adc_instance, &conversao_temperatura) == STATUS_BUSY);
+
+	//printf("CONVERSAO = %d \r\n", conversao_temperatura);
+
+	temperatura_atual =  ((float)conversao_temperatura*3.3/(4096))/0.01;
+	temperatura_atual = converte_celcius_task(temperatura_atual);
+
+	vTaskDelay(ABOUT_TASK_DELAY);
+
+	//printf("Lendo do sensor !!\r\n");
+
 	evento = PROXIMO_ESTADO;
 }
 
-/// Calcula a media de temperatura e grava na memoria
+/// Calcula a media das temperaturas e salva na memoria
 void calcula_media(){
-	
-	
-	if (temperatura_atual > temp_max){
+
+	if (temperatura_atual > temp_max)
+	{
+		if(temp_max>255)	return -1;
 		temp_max = temperatura_atual;
-	}else if (temperatura_atual < temp_min){
+	}
+	else if (temperatura_atual < temp_min)
+	{
 		temp_min = temperatura_atual;
 	}
-	
+
 	temp_media = (temp_media + temperatura_atual) / 2;
-	
-	printf("Calculando media e gravando na memoria !!\r\n");	
+
+	//printf("Calculando media e gravando na memoria !!\r\n");
 
 	/// Grava nas respectivas páginas de memoria
 	page_data[0] = temperatura_atual;
@@ -337,64 +376,75 @@ void calcula_media(){
 	page_data[3] = temp_min;
 	eeprom_emulator_write_page(0, page_data);
 	eeprom_emulator_commit_page_buffer();
-	
+
 	evento = PROXIMO_ESTADO;
+}
+
+void mostraconsole_task(void* params) /// transforma numa task (acende o led antes de executar), executa e após executar apaga o led
+{
+	while(1)
+	{
+		// Show that task is executing
+		oled1_set_led_state(&oled1, OLED1_LED3_ID, true);
+
+		/// Debug, Mostrando no console
+		printf ( "\nTemperatura Atual  %d \r\n", temperatura_atual);
+		printf ( "Temperatura Minima %d \r\n",   temp_min);
+		printf ( "Temperatura Media  %d \r\n",   temp_media);
+		printf ( "Temperatura Maxima %d \r\n",   temp_max);
+
+		
+		oled1_set_led_state(&oled1, OLED1_LED3_ID, false);
+		//delay_s(10);
+		vTaskDelay(TERMINAL_TASK_DELAY);
+	}
+
 }
 
 /// Switch que mostra o display
 void mostra_display()
 {
-	char quebra[1] = "\n";
-	char temperatura_max[] = " Temp Max :";
-	char temperatura_med[] = " Temp Med :";
-	char temperatura_min[] = " Temp Min :";
-	char limpa_limpa[] = "\n\n\n";
 	/// Debug
-	printf ( "Mostrando display\r\n");
-	
-	/// Debug, Mostrando no console
-	printf ( "Temperatura Atual  %d\n", ( int) temperatura_atual);
-	printf ( "Temperatura Minima %d\n", ( int) temp_min);
-	printf ( "Temperatura Media  %d\n", ( int) temp_media);
-	printf ( "Temperatura Maxima %d\n", ( int) temp_max);
+	//printf ( "Mostrando display\r\n");
 
+	//temperatura_atual = converte_celcius(temperatura_atual);
 
-
+	//mostra_console_task();
 	switch (estado)
 	{
-		
 		case TEMP_ATUAL:
 		strcpy(mensagem, "Temperatura  Atual:");
 		itoa ((int)temperatura_atual , c, 10);
-		printf ("temp atual %d\n", (int)temperatura_atual);
+		//printf ("temp atual %d\n", (int)temperatura_atual);
 		break;
-		
+
 		case MEIO:
 		strcpy(mensagem, "Temperatura  Media:");
 		itoa ((int)temp_media, c, 10);
-		printf ("temp media %d\n", (int)temp_media);
+		//printf ("temp media %d\n", (int)temp_media);
 		break;
-		
+
 		case TEMP_MAX:
 		strcpy(mensagem, "Temperatura Maxima:");
 		itoa ((int)temp_max, c, 10);
-		printf ("temp max %d\n", (int)temp_max);
+		//printf ("temp max %d\n", (int)temp_max);
 		break;
-		
+
 		case TEMP_MIN:
 		strcpy(mensagem, "Temperatura Minima:");
 		itoa ((int)temp_min, c, 10);
-		printf ("temp min %d\n", (int)temp_min);
+		//printf ("temp min %d\n", (int)temp_min);
 		break;
 	}
-	
+
 	/// Escrita
 	x = 0;
 	y = 0;
 	gfx_mono_draw_string(mensagem, x, y, &sysfont);
-	
+
 	x = 54;
 	y = 10;
+	strcat(c, "  ");
 	gfx_mono_draw_string(c, x, y, &sysfont);
 	evento = PROXIMO_ESTADO;
 }
@@ -402,7 +452,7 @@ void mostra_display()
 /// Tempo ocioso da aplicação, utiliza para verificar o estado dos botoes
 void ocioso()
 {
-	if (rtc_count_is_compare_match( &rtc_instance, RTC_COUNT_COMPARE_0)) 
+	if (rtc_count_is_compare_match( &rtc_instance, RTC_COUNT_COMPARE_0))
 	{
 		rtc_count_clear_compare_match( &rtc_instance, RTC_COUNT_COMPARE_0);
 		evento = PROXIMO_ESTADO;
@@ -413,17 +463,17 @@ void ocioso()
 		evento = ESTADO_ANTERIOR;
 		debounce();
 	}
-	//else if (oled1_get_button_state( &oled1, OLED1_BUTTON2_ID))
-	//{
-	//	evento = HARD_RESET;
-	//	debounce();
-	//}
 	else if (oled1_get_button_state( &oled1, OLED1_BUTTON2_ID))
+	{
+		evento = HARD_RESET;
+		debounce();
+	}
+	/*else if (oled1_get_button_state( &oled1, OLED1_BUTTON2_ID))
 	{
 		estado = (estado + 1) % 4;
 		evento = ESTADO_ANTERIOR;
 		debounce();
-	}
+	}*/
 	else
 	{
 		evento = MANTEM_ESTADO;
@@ -433,28 +483,62 @@ void ocioso()
 /// Reset na Placa e na memoria
 void hard_reset()
 {
-	printf("Reset Pressionado \n");
-	
+	printf("\r\nReset Pressionado \r\n");
+
 	temperatura_atual = 0;
 	temp_max = 0;
-	temp_min = 255;
+	temp_min = 50;
 	temp_media = 0;
-	
+
 	// zera a memoria fisica utilizada
 	page_data[0] = 0; // temperatura atual
 	page_data[1] = 0; // temperatura media
 	page_data[2] = 0; //temperatura maxima
-	page_data[3] = 255; // temperatura minima
+	page_data[3] = 20; // temperatura minima
 	eeprom_emulator_write_page( 0, page_data);
 	eeprom_emulator_commit_page_buffer();
 	evento = PROXIMO_ESTADO;
 }
 
-/// Funcao main, configura o USART e inicia as protothreads em um loop infinito
-int main (void)
+/// Estado inicial, recupera da memoria
+void inicial()
 {
-	int i = 0;
+	eeprom_emulator_read_page(0, page_data);
+	temperatura_atual = page_data[0];
+	temp_media = page_data[1];
+	temp_max = page_data[2];
+	temp_min = page_data[3];
+
+	printf("\r\nEstado Inicial \r\n");
+}
+
+/// Main task
+void main_task (void * param)
+{
+	printf( " Main task");
+	while (1)
+	{
+		// Show that task is executing
+		oled1_set_led_state(&oled1, OLED1_LED1_ID, true); ///ele acende antes de iniciar(e quando estiver executando) a task e apaga quando esta executando a task
+
+		if (StateTable[currentState][evento].ptrFunc != NULL)
+			{
+				StateTable[currentState][evento].ptrFunc();
+			}
+
+		currentState = StateTable[currentState][evento].NextState;
+
+		vTaskDelay(MAIN_TASK_DELAY);
+		oled1_set_led_state(&oled1, OLED1_LED1_ID, false);
+		vTaskDelay(MAIN_TASK_DELAY);
+
+	}
+}
+
+int main(void)
+{
 	system_init();
+
 	usart_get_config_defaults(&usart_conf);
 	usart_conf.baudrate    = 9600;
 	usart_conf.mux_setting = EDBG_CDC_SERCOM_MUX_SETTING;
@@ -463,18 +547,16 @@ int main (void)
 	usart_conf.pinmux_pad2 = EDBG_CDC_SERCOM_PINMUX_PAD2;
 	usart_conf.pinmux_pad3 = EDBG_CDC_SERCOM_PINMUX_PAD3;
 	stdio_serial_init( &usart_instance, EDBG_CDC_MODULE, &usart_conf);
-	
+
 	usart_enable( &usart_instance);
-	
-	uint8_t currentState = INICIO;
-	
-	while (1) 
-	{	
-		if (StateTable[currentState][evento].ptrFunc != NULL)
-			{
-				StateTable[currentState][evento].ptrFunc();					
-			}
-			
-		currentState = StateTable[currentState][evento].NextState;	
-	}
+
+
+
+	init();
+
+	vTaskStartScheduler();
+
+	while(1);
+	printf("NAO");
+	return 0;
 }
